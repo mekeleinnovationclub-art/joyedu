@@ -34,4 +34,9 @@ export class CourseModerationDto {
   @IsString()
   @MaxLength(1000)
   moderationReason?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isFlagged?: boolean;
 }

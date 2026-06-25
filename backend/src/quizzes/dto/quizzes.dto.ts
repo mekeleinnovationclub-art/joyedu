@@ -7,22 +7,27 @@ import {
   IsEnum,
   Min,
   Max,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+const QUESTION_TYPES = ['MULTIPLE_CHOICE', 'SINGLE_CHOICE', 'TRUE_FALSE', 'SHORT_ANSWER', 'CODE', 'MATCHING', 'FILL_BLANK'] as const;
+type QuestionType = 'MULTIPLE_CHOICE' | 'SINGLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'CODE' | 'MATCHING' | 'FILL_BLANK';
 
 export class CreateQuestionDto {
   @ApiProperty()
   @IsString()
   text: string;
 
-  @ApiProperty({ enum: ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'SHORT_ANSWER', 'CODE'] })
-  @IsEnum({ MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', TRUE_FALSE: 'TRUE_FALSE', SHORT_ANSWER: 'SHORT_ANSWER', CODE: 'CODE' })
-  type: 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'CODE';
+  @ApiProperty({ enum: QUESTION_TYPES })
+  @IsEnum(QUESTION_TYPES)
+  type: QuestionType;
 
   @ApiPropertyOptional()
   @IsOptional()
-  options?: object;
+  @IsObject()
+  options?: Record<string, unknown>;
 
   @ApiProperty()
   @IsString()
@@ -35,9 +40,58 @@ export class CreateQuestionDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   points?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
+
+export class UpdateQuestionDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  text?: string;
+
+  @ApiPropertyOptional({ enum: QUESTION_TYPES })
+  @IsOptional()
+  @IsEnum(QUESTION_TYPES)
+  type?: QuestionType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  options?: Record<string, unknown>;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  correctAnswer?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  explanation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  points?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
 }
 
 export class CreateQuizDto {
@@ -56,6 +110,7 @@ export class CreateQuizDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(100)
@@ -63,6 +118,7 @@ export class CreateQuizDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   timeLimit?: number;
@@ -75,7 +131,45 @@ export class CreateQuizDto {
   questions?: CreateQuestionDto[];
 }
 
+export class UpdateQuizDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  passingScore?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  timeLimit?: number;
+}
+
 export class SubmitQuizDto {
   @ApiProperty()
   answers: Record<string, string>;
+}
+
+export class ReorderQuestionsDto {
+  @ApiProperty()
+  @IsString()
+  quizId: string;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  questionIds: string[];
 }

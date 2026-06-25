@@ -38,6 +38,11 @@ export default function AdminAnalytics() {
       revenue: number;
       transactions: number;
     };
+    chartData: Array<{
+      name: string;
+      revenue: number;
+      enrollments: number;
+    }>;
   }>({
     queryKey: ['admin-analytics', timeRange],
     queryFn: () => api.get(`/admin/analytics?timeRange=${timeRange}`, { token: accessToken || undefined }),
@@ -48,22 +53,7 @@ export default function AdminAnalytics() {
 
   const isLoading = statsLoading || analyticsLoading;
 
-  // Mock chart data based on time range
-  const generateChartData = () => {
-    const dataPoints = timeRange === '24hours' ? 24 : timeRange === '7days' ? 7 : timeRange === '30days' ? 30 : 12;
-    const data = [];
-    
-    for (let i = 0; i < dataPoints; i++) {
-      data.push({
-        name: timeRange === '24hours' ? `${i}:00` : timeRange === '7days' ? `Day ${i + 1}` : timeRange === '30days' ? `Day ${i + 1}` : `Month ${i + 1}`,
-        revenue: Math.floor(Math.random() * 5000) + 1000,
-        enrollments: Math.floor(Math.random() * 100) + 10,
-      });
-    }
-    return data;
-  };
-
-  const chartData = generateChartData();
+  const chartData = analytics?.chartData || [];
 
   const pieData = [
     { name: 'Students', value: dashboardStats?.totalUsers ? Math.floor(dashboardStats.totalUsers * 0.7) : 400 },

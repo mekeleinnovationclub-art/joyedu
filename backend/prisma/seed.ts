@@ -30,9 +30,12 @@ async function main() {
   await prisma.quizAttempt.deleteMany();
   await prisma.question.deleteMany();
   await prisma.quiz.deleteMany();
+  await prisma.exercise.deleteMany();
+  await prisma.contentBlock.deleteMany();
+  await prisma.subtopic.deleteMany();
+  await prisma.topic.deleteMany();
   await prisma.resource.deleteMany();
   await prisma.lesson.deleteMany();
-  await prisma.chapter.deleteMany();
   await prisma.coursePrerequisite.deleteMany();
   await prisma.courseVersion.deleteMany();
   await prisma.announcement.deleteMany();
@@ -357,11 +360,11 @@ async function main() {
 
   console.log('✅ Courses created');
 
-  // Create Chapters and Lessons
-  console.log('📖 Creating chapters and lessons...');
-  
-  // Course 1 Chapters
-  const course1Chapter1 = await prisma.chapter.create({
+  // Create Topics, Subtopics and Lessons
+  console.log('📖 Creating topics, subtopics and lessons...');
+
+  // Course 1 Topics
+  const course1Topic1 = await prisma.topic.create({
     data: {
       title: 'Introduction to Web Development',
       courseId: course1.id,
@@ -369,7 +372,7 @@ async function main() {
     },
   });
 
-  const course1Chapter2 = await prisma.chapter.create({
+  const course1Topic2 = await prisma.topic.create({
     data: {
       title: 'HTML Fundamentals',
       courseId: course1.id,
@@ -377,11 +380,28 @@ async function main() {
     },
   });
 
-  const course1Chapter3 = await prisma.chapter.create({
+  const course1Topic3 = await prisma.topic.create({
     data: {
       title: 'CSS Styling',
       courseId: course1.id,
       sortOrder: 3,
+    },
+  });
+
+  // Course 1 Subtopics
+  const course1Topic1Subtopic1 = await prisma.subtopic.create({
+    data: {
+      title: 'Getting Started',
+      topicId: course1Topic1.id,
+      sortOrder: 1,
+    },
+  });
+
+  const course1Topic2Subtopic1 = await prisma.subtopic.create({
+    data: {
+      title: 'HTML Basics',
+      topicId: course1Topic2.id,
+      sortOrder: 1,
     },
   });
 
@@ -392,7 +412,7 @@ async function main() {
       slug: 'what-is-web-development',
       type: 'MARKDOWN',
       content: '# Web Development Introduction\n\nWeb development is the work involved in developing a website for the Internet.',
-      chapterId: course1Chapter1.id,
+      subtopicId: course1Topic1Subtopic1.id,
       sortOrder: 1,
       isFree: true,
     },
@@ -405,7 +425,7 @@ async function main() {
       type: 'VIDEO',
       videoUrl: 'https://example.com/video1.mp4',
       videoDuration: 600,
-      chapterId: course1Chapter1.id,
+      subtopicId: course1Topic1Subtopic1.id,
       sortOrder: 2,
       isFree: true,
     },
@@ -417,7 +437,7 @@ async function main() {
       slug: 'html-basics',
       type: 'MARKDOWN',
       content: '# HTML Basics\n\nHTML is the standard markup language for creating web pages.',
-      chapterId: course1Chapter2.id,
+      subtopicId: course1Topic2Subtopic1.id,
       sortOrder: 1,
       isFree: false,
     },
@@ -430,17 +450,25 @@ async function main() {
       type: 'VIDEO',
       videoUrl: 'https://example.com/video2.mp4',
       videoDuration: 900,
-      chapterId: course1Chapter2.id,
+      subtopicId: course1Topic2Subtopic1.id,
       sortOrder: 2,
       isFree: false,
     },
   });
 
-  // Course 2 Chapters
-  const course2Chapter1 = await prisma.chapter.create({
+  // Course 2 Topics
+  const course2Topic1 = await prisma.topic.create({
     data: {
       title: 'React Fundamentals',
       courseId: course2.id,
+      sortOrder: 1,
+    },
+  });
+
+  const course2Topic1Subtopic1 = await prisma.subtopic.create({
+    data: {
+      title: 'Getting Started with React',
+      topicId: course2Topic1.id,
       sortOrder: 1,
     },
   });
@@ -451,17 +479,25 @@ async function main() {
       slug: 'react-introduction',
       type: 'MARKDOWN',
       content: '# React Introduction\n\nReact is a JavaScript library for building user interfaces.',
-      chapterId: course2Chapter1.id,
+      subtopicId: course2Topic1Subtopic1.id,
       sortOrder: 1,
       isFree: true,
     },
   });
 
-  // Course 3 Chapters
-  const course3Chapter1 = await prisma.chapter.create({
+  // Course 3 Topics
+  const course3Topic1 = await prisma.topic.create({
     data: {
       title: 'Python for Data Science',
       courseId: course3.id,
+      sortOrder: 1,
+    },
+  });
+
+  const course3Topic1Subtopic1 = await prisma.subtopic.create({
+    data: {
+      title: 'Python Basics',
+      topicId: course3Topic1.id,
       sortOrder: 1,
     },
   });
@@ -472,13 +508,13 @@ async function main() {
       slug: 'python-basics',
       type: 'MARKDOWN',
       content: '# Python Basics\n\nPython is a versatile programming language.',
-      chapterId: course3Chapter1.id,
+      subtopicId: course3Topic1Subtopic1.id,
       sortOrder: 1,
       isFree: true,
     },
   });
 
-  console.log('✅ Chapters and lessons created');
+  console.log('✅ Topics, subtopics and lessons created');
 
   // Create Enrollments
   console.log('📝 Creating enrollments...');
@@ -662,7 +698,8 @@ async function main() {
   console.log(`- Users: 5 (1 admin, 2 teachers, 3 students)`);
   console.log(`- Categories: 4`);
   console.log(`- Courses: 4`);
-  console.log(`- Chapters: 5`);
+  console.log(`- Topics: 5`);
+  console.log(`- Subtopics: 5`);
   console.log(`- Lessons: 7`);
   console.log(`- Enrollments: 4`);
   console.log(`- Reviews: 3`);

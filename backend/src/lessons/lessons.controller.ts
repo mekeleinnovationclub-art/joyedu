@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -30,12 +31,21 @@ export class LessonsController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('TEACHER', 'ADMIN')
+  @Get('subtopics/:subtopicId/lessons')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get lessons by subtopic ID' })
+  async findBySubtopic(@Param('subtopicId') subtopicId: string, @CurrentUser() user: JwtPayload) {
+    return this.lessonsService.findBySubtopic(subtopicId, user.sub, user.roles);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('TEACHER')
   @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a lesson' })
   async create(@CurrentUser() user: JwtPayload, @Body() dto: CreateLessonDto) {
-    return this.lessonsService.create(user.sub, dto);
+    return this.lessonsService.create(user.sub, user.roles, dto);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -48,7 +58,20 @@ export class LessonsController {
     @Param('id') id: string,
     @Body() dto: UpdateLessonDto,
   ) {
-    return this.lessonsService.update(id, user.sub, dto);
+    return this.lessonsService.update(id, user.sub, user.roles, dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('TEACHER')
+  @Patch(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Partial update a lesson (inline editing)' })
+  async patch(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateLessonDto,
+  ) {
+    return this.lessonsService.update(id, user.sub, user.roles, dto);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -57,6 +80,27 @@ export class LessonsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a lesson' })
   async delete(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.lessonsService.delete(id, user.sub);
+    return this.lessonsService.delete(id, user.sub, user.roles);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('TEACHER')
+  @Post('reorder')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reorder lessons' })
+  async reorder(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { subtopicId: string; lessonIds: string[] },
+  ) {
+    return this.lessonsService.reorder(body.subtopicId, user.sub, user.roles, body.lessonIds);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('TEACHER')
+  @Post(':id/duplicate')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Duplicate a lesson' })
+  async duplicate(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.lessonsService.duplicate(id, user.sub, user.roles);
   }
 }

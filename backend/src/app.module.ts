@@ -6,8 +6,9 @@ import { RedisModule } from './common/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CoursesModule } from './courses/courses.module';
-import { ChaptersModule } from './chapters/chapters.module';
 import { LessonsModule } from './lessons/lessons.module';
+import { TopicsModule } from './topics/topics.module';
+import { SubtopicsModule } from './subtopics/subtopics.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { CertificatesModule } from './certificates/certificates.module';
@@ -17,7 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
 import { CodingModule } from './coding/coding.module';
 import { AdminModule } from './admin/admin.module';
-import { UploadsModule } from './uploads/uploads.module';
+// import { UploadsModule } from './uploads/uploads.module';
 import { CategoriesModule } from './categories/categories.module';
 import { HealthModule } from './health/health.module';
 import { WishlistModule } from './wishlist/wishlist.module';
@@ -25,6 +26,14 @@ import { BookmarksModule } from './bookmarks/bookmarks.module';
 import { MessagesModule } from './messages/messages.module';
 import { TeacherApplicationsModule } from './teacher-applications/teacher-applications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { CourseStructureModule } from './course-structure/course-structure.module';
+import { ExercisesModule } from './exercises/exercises.module';
+import { ResourcesModule } from './resources/resources.module';
+import { CoursePrerequisitesModule } from './course-prerequisites/course-prerequisites.module';
+import { CourseMediaModule } from './course-media/course-media.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -35,8 +44,9 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AuthModule,
     UsersModule,
     CoursesModule,
-    ChaptersModule,
     LessonsModule,
+    TopicsModule,
+    SubtopicsModule,
     QuizzesModule,
     EnrollmentsModule,
     CertificatesModule,
@@ -46,7 +56,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     ChatModule,
     CodingModule,
     AdminModule,
-    UploadsModule,
+    // UploadsModule,
     CategoriesModule,
     HealthModule,
     WishlistModule,
@@ -54,6 +64,14 @@ import { AnalyticsModule } from './analytics/analytics.module';
     MessagesModule,
     TeacherApplicationsModule,
     AnalyticsModule,
+    CourseStructureModule,
+    ExercisesModule,
+    ResourcesModule,
+    CoursePrerequisitesModule,
+    CourseMediaModule,
+    AnnouncementsModule,
+    CouponsModule,
+    UploadModule,
   ],
 })
 export class AppModule {}

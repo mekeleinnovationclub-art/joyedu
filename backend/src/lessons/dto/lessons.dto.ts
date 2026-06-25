@@ -1,5 +1,11 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsEnum, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsEnum, Min, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+const LESSON_TYPES = ['VIDEO', 'MARKDOWN', 'CODING'] as const;
+type LessonType = 'VIDEO' | 'MARKDOWN' | 'CODING';
+
+const LESSON_STATUS = ['DRAFT', 'PUBLISHED'] as const;
+type LessonStatus = 'DRAFT' | 'PUBLISHED';
 
 export class CreateLessonDto {
   @ApiProperty()
@@ -8,11 +14,15 @@ export class CreateLessonDto {
 
   @ApiProperty()
   @IsString()
-  chapterId: string;
+  slug: string;
 
-  @ApiProperty({ enum: ['VIDEO', 'MARKDOWN', 'CODING'] })
-  @IsEnum({ VIDEO: 'VIDEO', MARKDOWN: 'MARKDOWN', CODING: 'CODING' })
-  type: 'VIDEO' | 'MARKDOWN' | 'CODING';
+  @ApiProperty()
+  @IsString()
+  subtopicId: string;
+
+  @ApiProperty({ enum: LESSON_TYPES })
+  @IsEnum(LESSON_TYPES)
+  type: LessonType;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -33,6 +43,27 @@ export class CreateLessonDto {
   @IsOptional()
   @IsBoolean()
   isFree?: boolean;
+
+  @ApiPropertyOptional({ enum: LESSON_STATUS })
+  @IsOptional()
+  @IsEnum(LESSON_STATUS)
+  status?: LessonStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keyTakeaways?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextLessonId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -50,6 +81,11 @@ export class UpdateLessonDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   content?: string;
 
   @ApiPropertyOptional()
@@ -66,6 +102,27 @@ export class UpdateLessonDto {
   @IsOptional()
   @IsBoolean()
   isFree?: boolean;
+
+  @ApiPropertyOptional({ enum: LESSON_STATUS })
+  @IsOptional()
+  @IsEnum(LESSON_STATUS)
+  status?: LessonStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keyTakeaways?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextLessonId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

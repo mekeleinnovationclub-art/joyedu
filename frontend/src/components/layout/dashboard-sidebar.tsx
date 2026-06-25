@@ -22,11 +22,13 @@ import {
   Bookmark,
   Heart,
   PlusCircle,
+  Wallet,
 } from 'lucide-react';
 
 const studentLinks = [
   { href: '/student', icon: Home, label: 'Dashboard' },
   { href: '/student/courses', icon: BookOpen, label: 'My Courses' },
+  { href: '/student/wallet', icon: Wallet, label: 'Wallet' },
   { href: '/student/bookmarks', icon: Bookmark, label: 'Bookmarks' },
   { href: '/student/wishlist', icon: Heart, label: 'Wishlist' },
   { href: '/student/certificates', icon: Trophy, label: 'Certificates' },
@@ -39,6 +41,7 @@ const teacherLinks = [
   { href: '/teacher', icon: Home, label: 'Dashboard' },
   { href: '/teacher/courses', icon: BookOpen, label: 'My Courses' },
   { href: '/teacher/courses/new', icon: PlusCircle, label: 'Create Course' },
+  { href: '/teacher/wallet', icon: Wallet, label: 'Wallet' },
   { href: '/teacher/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/teacher/revenue', icon: DollarSign, label: 'Revenue' },
   { href: '/teacher/students', icon: Users, label: 'Students' },
@@ -50,6 +53,7 @@ const adminLinks = [
   { href: '/admin', icon: Home, label: 'Dashboard' },
   { href: '/admin/users', icon: Users, label: 'Users' },
   { href: '/admin/courses', icon: BookOpen, label: 'Courses' },
+  { href: '/admin/wallet', icon: Wallet, label: 'Wallet' },
   { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/admin/payouts', icon: DollarSign, label: 'Payouts' },
   { href: '/admin/challenges', icon: Code, label: 'Challenges' },

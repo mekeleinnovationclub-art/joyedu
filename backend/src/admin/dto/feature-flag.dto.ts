@@ -1,5 +1,7 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MinLength, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+const ENVIRONMENTS = ['DEVELOPMENT', 'STAGING', 'PRODUCTION'] as const;
 
 export class CreateFeatureFlagDto {
   @ApiProperty()
@@ -19,20 +21,26 @@ export class CreateFeatureFlagDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ default: false })
+  @ApiProperty({ default: false, required: false })
   @IsOptional()
   @IsBoolean()
   isEnabled?: boolean;
 
-  @ApiProperty({ default: false })
+  @ApiProperty({ default: false, required: false })
   @IsOptional()
   @IsBoolean()
   isBeta?: boolean;
 
-  @ApiProperty({ default: false })
+  @ApiProperty({ default: false, required: false })
   @IsOptional()
   @IsBoolean()
   isMaintenance?: boolean;
+
+  @ApiProperty({ default: 'PRODUCTION', required: false })
+  @IsOptional()
+  @IsString()
+  @IsIn(ENVIRONMENTS)
+  environment?: string;
 }
 
 export class UpdateFeatureFlagDto {
@@ -61,4 +69,10 @@ export class UpdateFeatureFlagDto {
   @IsOptional()
   @IsBoolean()
   isMaintenance?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @IsIn(ENVIRONMENTS)
+  environment?: string;
 }

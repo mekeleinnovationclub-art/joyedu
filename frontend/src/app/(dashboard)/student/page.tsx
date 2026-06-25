@@ -3,10 +3,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { api } from '@/lib/api';
+import { walletApi } from '@/lib/wallet-api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, Trophy, Clock, TrendingUp } from 'lucide-react';
+import { BookOpen, Trophy, Clock, TrendingUp, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import type { Enrollment } from '@/types';
 import { RoleProtectedRoute } from '@/components/common/route-guards';
@@ -20,6 +21,12 @@ function StudentDashboardContent() {
     enabled: !!accessToken,
   });
 
+  const { data: walletBalance } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: () => walletApi.getBalance(accessToken || ''),
+    enabled: !!accessToken,
+  });
+
   const inProgress = enrollments?.filter((e) => !e.completedAt) || [];
   const completed = enrollments?.filter((e) => e.completedAt) || [];
 
@@ -30,7 +37,7 @@ function StudentDashboardContent() {
         <p className="text-muted-foreground mt-1">Continue your learning journey</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-6 flex items-center gap-4">
             <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -82,6 +89,20 @@ function StudentDashboardContent() {
             </div>
           </CardContent>
         </Card>
+
+        <Link href="/student/wallet">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Wallet className="h-6 w-6 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{walletBalance?.balance.toFixed(2) || '0.00'} ETB</p>
+                <p className="text-sm text-muted-foreground">Wallet Balance</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div>

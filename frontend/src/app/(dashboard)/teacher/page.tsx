@@ -3,11 +3,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { api } from '@/lib/api';
+import { walletApi } from '@/lib/wallet-api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, DollarSign, PlusCircle, Users, TrendingUp, BarChart3 } from 'lucide-react';
+import { BookOpen, DollarSign, PlusCircle, Users, TrendingUp, BarChart3, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import type { Course } from '@/types';
 import { RoleProtectedRoute } from '@/components/common/route-guards';
@@ -34,6 +35,12 @@ function TeacherDashboardContent() {
     enabled: !!accessToken,
   });
 
+  const { data: walletBalance } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: () => walletApi.getBalance(accessToken || ''),
+    enabled: !!accessToken,
+  });
+
   const publishedCourses = courses?.filter((c) => c.status === 'PUBLISHED') || [];
   const draftCourses = courses?.filter((c) => c.status === 'DRAFT') || [];
   const totalStudents = courses?.reduce((sum, c) => sum + (c._count?.enrollments || 0), 0) || 0;
@@ -53,7 +60,7 @@ function TeacherDashboardContent() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Link href="/teacher/courses">
           <Card className="cursor-pointer transition-all duration-200 hover:bg-slate-50 hover:border-blue-500">
             <CardContent className="p-6 flex items-center gap-4">
@@ -105,6 +112,20 @@ function TeacherDashboardContent() {
               <div>
                 <p className="text-2xl font-bold">{revenue?.totalTransactions || 0}</p>
                 <p className="text-sm text-muted-foreground">Sales</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/teacher/wallet">
+          <Card className="cursor-pointer transition-all duration-200 hover:bg-slate-50 hover:border-blue-500">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Wallet className="h-6 w-6 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{walletBalance?.balance.toFixed(2) || '0.00'} ETB</p>
+                <p className="text-sm text-muted-foreground">Wallet Balance</p>
               </div>
             </CardContent>
           </Card>

@@ -22,6 +22,8 @@ import {
   Enable2FADto,
 } from './dto/auth.dto';
 import type { ActiveRole, Role } from '@prisma/client';
+import { UsersService } from '../users/users.service';
+import { UpdateAuthProfileDto } from './dto/profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +32,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private redis: RedisService,
+    private usersService: UsersService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -297,6 +300,44 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     return { message: 'Logged out successfully' };
+  }
+
+  async updateProfile(userId: string, dto: UpdateAuthProfileDto) {
+    const { username, email, notifications, ...profileFields } = dto;
+
+    if (username) {
+      const existing = await this.prisma.user.findFirst({
+        where: { username, NOT: { id: userId } },
+      });
+      if (existing) throw new ConflictException('Username already taken');
+      await this.prisma.user.update({ where: { id: userId }, data: { username } });
+    }
+
+    if (email) {
+      const existing = await this.prisma.user.findFirst({
+        where: { email, NOT: { id: userId } },
+      });
+      if (existing) throw new ConflictException('Email already in use');
+      await this.prisma.user.update({ where: { id: userId }, data: { email } });
+    }
+
+    if (notifications) {
+      await this.prisma.platformSettings.upsert({
+        where: { key: `user.${userId}.notifications` },
+        update: { value: notifications },
+        create: {
+          key: `user.${userId}.notifications`,
+          value: notifications,
+          category: 'user',
+        },
+      });
+    }
+
+    if (Object.keys(profileFields).length > 0) {
+      await this.usersService.updateProfile(userId, profileFields);
+    }
+
+    return this.getCurrentUser(userId);
   }
 
   private async generateTokens(

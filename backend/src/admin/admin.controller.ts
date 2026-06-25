@@ -9,7 +9,6 @@ import {
   Query,
   Body,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -29,12 +28,9 @@ import { CreatePlatformSettingDto, UpdatePlatformSettingDto } from './dto/platfo
 import { AuditLogFilterDto } from './dto/audit-log-filter.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { AnalyticsFilterDto } from './dto/analytics-filter.dto';
-
-interface RequestWithUser extends Request {
-  user: {
-    userId: string;
-  };
-}
+import { AdminCourseFilterDto } from './dto/admin-course-filter.dto';
+import { BulkPlatformSettingsDto } from './dto/bulk-settings.dto';
+import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -80,8 +76,8 @@ export class AdminController {
 
   @Post('users')
   @ApiOperation({ summary: 'Create a new user' })
-  async createUser(@Body() createUserDto: CreateUserDto, @Request() req: RequestWithUser) {
-    return this.adminService.createUser(createUserDto, req.user.userId);
+  async createUser(@Body() createUserDto: CreateUserDto, @CurrentUser() user: JwtPayload) {
+    return this.adminService.createUser(createUserDto, user.sub);
   }
 
   @Put('users/:id')
@@ -89,9 +85,9 @@ export class AdminController {
   async updateUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateUser(id, updateUserDto, req.user.userId);
+    return this.adminService.updateUser(id, updateUserDto, user.sub);
   }
 
   @Patch('users/:id')
@@ -99,27 +95,27 @@ export class AdminController {
   async patchUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateUser(id, updateUserDto, req.user.userId);
+    return this.adminService.updateUser(id, updateUserDto, user.sub);
   }
 
   @Delete('users/:id')
   @ApiOperation({ summary: 'Soft delete user' })
-  async softDeleteUser(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.softDeleteUser(id, req.user.userId);
+  async softDeleteUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.softDeleteUser(id, user.sub);
   }
 
   @Post('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend user' })
-  async suspendUser(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.suspendUser(id, req.user.userId);
+  async suspendUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.suspendUser(id, user.sub);
   }
 
   @Post('users/:id/reactivate')
   @ApiOperation({ summary: 'Reactivate user' })
-  async reactivateUser(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.reactivateUser(id, req.user.userId);
+  async reactivateUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.reactivateUser(id, user.sub);
   }
 
   @Post('users/:id/reset-password')
@@ -127,28 +123,28 @@ export class AdminController {
   async resetUserPassword(
     @Param('id') id: string,
     @Body() resetPasswordDto: ResetPasswordDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.resetUserPassword(id, resetPasswordDto, req.user.userId);
+    return this.adminService.resetUserPassword(id, resetPasswordDto, user.sub);
   }
 
   @Post('users/:id/verify-teacher')
   @ApiOperation({ summary: 'Verify user as teacher' })
-  async verifyTeacher(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.verifyTeacher(id, req.user.userId);
+  async verifyTeacher(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.verifyTeacher(id, user.sub);
   }
 
   @Post('users/:id/remove-teacher-role')
   @ApiOperation({ summary: 'Remove teacher role from user' })
-  async removeTeacherRole(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.removeTeacherRole(id, req.user.userId);
+  async removeTeacherRole(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.removeTeacherRole(id, user.sub);
   }
 
   // ==================== COURSE MANAGEMENT ====================
 
   @Get('courses')
   @ApiOperation({ summary: 'List all courses for admin' })
-  async getCourses(@Query() query: PaginationDto) {
+  async getCourses(@Query() query: AdminCourseFilterDto) {
     return this.adminService.getCourses(query);
   }
 
@@ -157,9 +153,9 @@ export class AdminController {
   async moderateCourse(
     @Param('id') id: string,
     @Body() moderationDto: CourseModerationDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.moderateCourse(id, moderationDto, req.user.userId);
+    return this.adminService.moderateCourse(id, moderationDto, user.sub);
   }
 
   @Patch('courses/:id')
@@ -167,45 +163,45 @@ export class AdminController {
   async patchCourse(
     @Param('id') id: string,
     @Body() moderationDto: CourseModerationDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.moderateCourse(id, moderationDto, req.user.userId);
+    return this.adminService.moderateCourse(id, moderationDto, user.sub);
   }
 
   @Post('courses/:id/publish')
   @ApiOperation({ summary: 'Publish course' })
-  async publishCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.publishCourse(id, req.user.userId);
+  async publishCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.publishCourse(id, user.sub);
   }
 
   @Post('courses/:id/unpublish')
   @ApiOperation({ summary: 'Unpublish course' })
-  async unpublishCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.unpublishCourse(id, req.user.userId);
+  async unpublishCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.unpublishCourse(id, user.sub);
   }
 
   @Post('courses/:id/feature')
   @ApiOperation({ summary: 'Feature course' })
-  async featureCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.featureCourse(id, req.user.userId);
+  async featureCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.featureCourse(id, user.sub);
   }
 
   @Post('courses/:id/unfeature')
   @ApiOperation({ summary: 'Unfeature course' })
-  async unfeatureCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.unfeatureCourse(id, req.user.userId);
+  async unfeatureCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.unfeatureCourse(id, user.sub);
   }
 
   @Post('courses/:id/archive')
   @ApiOperation({ summary: 'Archive course' })
-  async archiveCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.archiveCourse(id, req.user.userId);
+  async archiveCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.archiveCourse(id, user.sub);
   }
 
   @Delete('courses/:id')
   @ApiOperation({ summary: 'Delete course' })
-  async deleteCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.deleteCourse(id, req.user.userId);
+  async deleteCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.deleteCourse(id, user.sub);
   }
 
   // ==================== ANALYTICS ====================
@@ -253,9 +249,9 @@ export class AdminController {
   async approvePayout(
     @Param('id') id: string,
     @Body() payoutActionDto: PayoutActionDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.approvePayout(id, payoutActionDto, req.user.userId);
+    return this.adminService.approvePayout(id, payoutActionDto, user.sub);
   }
 
   @Put('payouts/:id/reject')
@@ -263,9 +259,9 @@ export class AdminController {
   async rejectPayout(
     @Param('id') id: string,
     @Body() payoutActionDto: PayoutActionDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.rejectPayout(id, payoutActionDto, req.user.userId);
+    return this.adminService.rejectPayout(id, payoutActionDto, user.sub);
   }
 
   @Get('payouts/export')
@@ -290,8 +286,8 @@ export class AdminController {
 
   @Post('challenges')
   @ApiOperation({ summary: 'Create a new challenge' })
-  async createChallenge(@Body() createChallengeDto: CreateChallengeDto, @Request() req: RequestWithUser) {
-    return this.adminService.createChallenge(createChallengeDto, req.user.userId);
+  async createChallenge(@Body() createChallengeDto: CreateChallengeDto, @CurrentUser() user: JwtPayload) {
+    return this.adminService.createChallenge(createChallengeDto, user.sub);
   }
 
   @Put('challenges/:id')
@@ -299,9 +295,9 @@ export class AdminController {
   async updateChallenge(
     @Param('id') id: string,
     @Body() updateChallengeDto: UpdateChallengeDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateChallenge(id, updateChallengeDto, req.user.userId);
+    return this.adminService.updateChallenge(id, updateChallengeDto, user.sub);
   }
 
   @Patch('challenges/:id')
@@ -309,15 +305,15 @@ export class AdminController {
   async patchChallenge(
     @Param('id') id: string,
     @Body() updateChallengeDto: UpdateChallengeDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateChallenge(id, updateChallengeDto, req.user.userId);
+    return this.adminService.updateChallenge(id, updateChallengeDto, user.sub);
   }
 
   @Delete('challenges/:id')
   @ApiOperation({ summary: 'Delete challenge' })
-  async deleteChallenge(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.deleteChallenge(id, req.user.userId);
+  async deleteChallenge(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.deleteChallenge(id, user.sub);
   }
 
   // ==================== AUDIT LOGS ====================
@@ -326,6 +322,18 @@ export class AdminController {
   @ApiOperation({ summary: 'Get audit logs with filters' })
   async getAuditLogsWithFilters(@Query() filter: AuditLogFilterDto) {
     return this.adminService.getAuditLogsWithFilters(filter);
+  }
+
+  @Get('deletion-history')
+  @ApiOperation({ summary: 'Get deletion history from audit logs' })
+  async getDeletionHistory(@Query() query: PaginationDto) {
+    return this.adminService.getDeletionHistory(query);
+  }
+
+  @Post('audit-logs/:id/restore')
+  @ApiOperation({ summary: 'Restore entity from audit log snapshot' })
+  async restoreFromAuditLog(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.restoreFromAuditLog(id, user.sub);
   }
 
   // ==================== FEATURE FLAGS ====================
@@ -344,8 +352,8 @@ export class AdminController {
 
   @Post('feature-flags')
   @ApiOperation({ summary: 'Create a new feature flag' })
-  async createFeatureFlag(@Body() createFeatureFlagDto: CreateFeatureFlagDto, @Request() req: RequestWithUser) {
-    return this.adminService.createFeatureFlag(createFeatureFlagDto, req.user.userId);
+  async createFeatureFlag(@Body() createFeatureFlagDto: CreateFeatureFlagDto, @CurrentUser() user: JwtPayload) {
+    return this.adminService.createFeatureFlag(createFeatureFlagDto, user.sub);
   }
 
   @Put('feature-flags/:id')
@@ -353,9 +361,9 @@ export class AdminController {
   async updateFeatureFlag(
     @Param('id') id: string,
     @Body() updateFeatureFlagDto: UpdateFeatureFlagDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateFeatureFlag(id, updateFeatureFlagDto, req.user.userId);
+    return this.adminService.updateFeatureFlag(id, updateFeatureFlagDto, user.sub);
   }
 
   @Patch('feature-flags/:id')
@@ -363,9 +371,9 @@ export class AdminController {
   async patchFeatureFlag(
     @Param('id') id: string,
     @Body() updateFeatureFlagDto: UpdateFeatureFlagDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateFeatureFlag(id, updateFeatureFlagDto, req.user.userId);
+    return this.adminService.updateFeatureFlag(id, updateFeatureFlagDto, user.sub);
   }
 
   @Put('feature-flags/:id/toggle')
@@ -376,8 +384,8 @@ export class AdminController {
 
   @Delete('feature-flags/:id')
   @ApiOperation({ summary: 'Delete feature flag' })
-  async deleteFeatureFlag(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.deleteFeatureFlag(id, req.user.userId);
+  async deleteFeatureFlag(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.deleteFeatureFlag(id, user.sub);
   }
 
   // ==================== PLATFORM SETTINGS ====================
@@ -386,6 +394,24 @@ export class AdminController {
   @ApiOperation({ summary: 'Get all platform settings' })
   async getPlatformSettings(@Query() query: PaginationDto, @Query('category') category?: string) {
     return this.adminService.getPlatformSettings(category, query);
+  }
+
+  @Patch('settings')
+  @ApiOperation({ summary: 'Bulk update platform settings' })
+  async bulkUpdateSettings(
+    @Body() dto: BulkPlatformSettingsDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.adminService.bulkUpdatePlatformSettings(dto, user.sub);
+  }
+
+  @Post('settings')
+  @ApiOperation({ summary: 'Create a new platform setting' })
+  async createPlatformSetting(
+    @Body() createPlatformSettingDto: CreatePlatformSettingDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.adminService.createPlatformSetting(createPlatformSettingDto, user.sub);
   }
 
   @Get('settings/key/:key')
@@ -410,29 +436,20 @@ export class AdminController {
 
   @Post('recycle-bin/users/:id/restore')
   @ApiOperation({ summary: 'Restore deleted user' })
-  async restoreUser(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.restoreUser(id, req.user.userId);
+  async restoreUser(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.restoreUser(id, user.sub);
   }
 
   @Post('recycle-bin/courses/:id/restore')
   @ApiOperation({ summary: 'Restore deleted course' })
-  async restoreCourse(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.restoreCourse(id, req.user.userId);
+  async restoreCourse(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.restoreCourse(id, user.sub);
   }
 
   @Post('recycle-bin/challenges/:id/restore')
   @ApiOperation({ summary: 'Restore deleted challenge' })
-  async restoreChallenge(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.restoreChallenge(id, req.user.userId);
-  }
-
-  @Post('settings')
-  @ApiOperation({ summary: 'Create a new platform setting' })
-  async createPlatformSetting(
-    @Body() createPlatformSettingDto: CreatePlatformSettingDto,
-    @Request() req: RequestWithUser,
-  ) {
-    return this.adminService.createPlatformSetting(createPlatformSettingDto, req.user.userId);
+  async restoreChallenge(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.restoreChallenge(id, user.sub);
   }
 
   @Put('settings/:id')
@@ -440,14 +457,14 @@ export class AdminController {
   async updatePlatformSetting(
     @Param('id') id: string,
     @Body() updatePlatformSettingDto: UpdatePlatformSettingDto,
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updatePlatformSetting(id, updatePlatformSettingDto, req.user.userId);
+    return this.adminService.updatePlatformSetting(id, updatePlatformSettingDto, user.sub);
   }
 
   @Delete('settings/:id')
   @ApiOperation({ summary: 'Delete platform setting' })
-  async deletePlatformSetting(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.adminService.deletePlatformSetting(id, req.user.userId);
+  async deletePlatformSetting(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.adminService.deletePlatformSetting(id, user.sub);
   }
 }

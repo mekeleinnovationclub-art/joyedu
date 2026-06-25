@@ -46,7 +46,8 @@ export default function AdminCourses() {
     queryFn: () => {
       let url = '/admin/courses?page=1&limit=20';
       if (searchQuery) url += `&search=${searchQuery}`;
-      if (statusFilter !== 'all') url += `&status=${statusFilter}`;
+      if (statusFilter === 'flagged') url += `&flagged=true`;
+      else if (statusFilter !== 'all') url += `&status=${statusFilter}`;
       return api.get(url, { token: accessToken || undefined });
     },
     enabled: !!accessToken,
@@ -84,26 +85,8 @@ export default function AdminCourses() {
   });
 
   const handleEditCourse = (course: any) => {
-    setEditingCourse(course);
-    setEditForm({
-      title: course.title || '',
-      description: course.description || '',
-      price: course.price?.toString() || '0',
-    });
-    setEditDialogOpen(true);
-  };
-
-  const handleSaveEdit = () => {
-    if (editingCourse) {
-      updateMutation.mutate({
-        id: editingCourse.id,
-        data: {
-          title: editForm.title,
-          description: editForm.description,
-          price: parseFloat(editForm.price),
-        },
-      });
-    }
+    // Navigate to the full course builder instead of opening a simple modal
+    window.location.href = `/teacher/courses/${course.id}`;
   };
 
   const handleDeleteCourse = (course: any) => {
@@ -316,50 +299,6 @@ export default function AdminCourses() {
         </Card>
       )}
 
-      {/* Edit Course Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Course</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                rows={4}
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-price">Price</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                value={editForm.price}
-                onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Course Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

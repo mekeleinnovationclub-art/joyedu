@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -6,10 +6,14 @@ interface FetchOptions extends RequestInit {
 }
 
 type AuthInterceptor = (error: Error, statusCode?: number) => Promise<boolean> | boolean;
+type TokenRefreshFn = () => Promise<{ accessToken: string; refreshToken: string }>;
 
 class ApiClient {
   private baseUrl: string;
   private authInterceptor: AuthInterceptor | null = null;
+  private tokenRefreshFn: TokenRefreshFn | null = null;
+  private isRefreshing = false;
+  private refreshSubscribers: Array<(token: string) => void> = [];
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -17,6 +21,40 @@ class ApiClient {
 
   setAuthInterceptor(interceptor: AuthInterceptor) {
     this.authInterceptor = interceptor;
+  }
+
+  setTokenRefreshFn(fn: TokenRefreshFn) {
+    this.tokenRefreshFn = fn;
+  }
+
+  private subscribeTokenRefresh(callback: (token: string) => void) {
+    this.refreshSubscribers.push(callback);
+  }
+
+  private onTokenRefreshed(token: string) {
+    this.refreshSubscribers.forEach((callback) => callback(token));
+    this.refreshSubscribers = [];
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    if (!this.tokenRefreshFn) {
+      throw new Error('No token refresh function available');
+    }
+
+    if (this.isRefreshing) {
+      return new Promise((resolve) => {
+        this.subscribeTokenRefresh((token) => resolve(token));
+      });
+    }
+
+    this.isRefreshing = true;
+    try {
+      const { accessToken } = await this.tokenRefreshFn();
+      this.onTokenRefreshed(accessToken);
+      return accessToken;
+    } finally {
+      this.isRefreshing = false;
+    }
   }
 
   private async request<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
@@ -39,7 +77,40 @@ class ApiClient {
     if (!response.ok) {
       const statusCode = response.status;
       
-      // Handle 401 Unauthorized with auth interceptor
+      // Handle 401 Unauthorized with token refresh
+      if (statusCode === 401 && !skipAuth && token && this.tokenRefreshFn) {
+        try {
+          const newToken = await this.refreshAccessToken();
+          // Retry the original request with new token
+          headers.Authorization = `Bearer ${newToken}`;
+          const retryResponse = await fetch(`${this.baseUrl}/api${endpoint}`, {
+            ...fetchOptions,
+            headers,
+            credentials: 'include',
+          });
+
+          if (!retryResponse.ok) {
+            const error = await retryResponse.json().catch(() => ({ message: 'Request failed after refresh' }));
+            throw new Error(error.message || `HTTP ${retryResponse.status}`);
+          }
+
+          return retryResponse.json();
+        } catch (refreshError) {
+          // Refresh failed, trigger logout via auth interceptor
+          if (this.authInterceptor) {
+            const shouldLogout = await this.authInterceptor(
+              new Error('Token refresh failed'),
+              statusCode
+            );
+            if (shouldLogout) {
+              throw new Error('SESSION_EXPIRED');
+            }
+          }
+          throw refreshError;
+        }
+      }
+
+      // Handle 401 without refresh capability or skipAuth
       if (statusCode === 401 && this.authInterceptor) {
         const error = await response.json().catch(() => ({ message: 'Unauthorized' }));
         const shouldLogout = await this.authInterceptor(

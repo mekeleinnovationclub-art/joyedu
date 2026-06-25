@@ -18,29 +18,69 @@ import { UpdatePlatformSettingDto } from './dto/platform-settings.dto';
 import { AuditLogFilterDto } from './dto/audit-log-filter.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { AnalyticsFilterDto } from './dto/analytics-filter.dto';
+import { AdminCourseFilterDto } from './dto/admin-course-filter.dto';
+import { BulkPlatformSettingsDto } from './dto/bulk-settings.dto';
+import { CoursePermissionsService } from '../common/services/course-permissions.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private coursePermissions: CoursePermissionsService,
+  ) {}
 
   async getDashboardStats() {
-    const [users, courses, enrollments, transactions] = await Promise.all([
+    const [
+      totalUsers,
+      students,
+      teachers,
+      courses,
+      publishedCourses,
+      enrollments,
+      transactions,
+      pendingReviews,
+      flaggedContent,
+      recentAuditLogs,
+      teacherApplications,
+      certificatesIssued,
+    ] = await Promise.all([
       this.prisma.user.count({ where: { deletedAt: null } }),
+      this.prisma.user.count({ where: { deletedAt: null, roles: { has: 'STUDENT' } } }),
+      this.prisma.user.count({ where: { deletedAt: null, roles: { has: 'TEACHER' } } }),
       this.prisma.course.count({ where: { deletedAt: null } }),
+      this.prisma.course.count({ where: { deletedAt: null, status: 'PUBLISHED' } }),
       this.prisma.enrollment.count(),
       this.prisma.transaction.aggregate({
         where: { status: 'COMPLETED' },
         _sum: { amount: true },
         _count: true,
       }),
+      this.prisma.course.count({ where: { deletedAt: null, status: 'REVIEW' as any } }),
+      this.prisma.course.count({ where: { deletedAt: null, isFlagged: { equals: true } } }),
+      this.prisma.auditLog.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { email: true, firstName: true, lastName: true } } },
+      }),
+      this.prisma.teacherApplication.count({ where: { status: 'PENDING' } }),
+      this.prisma.certificate.count(),
     ]);
 
     return {
-      totalUsers: users,
+      totalUsers,
+      students,
+      teachers,
       totalCourses: courses,
+      publishedCourses,
+      activeCourses: publishedCourses,
       totalEnrollments: enrollments,
       totalRevenue: Number(transactions._sum.amount || 0),
       totalTransactions: transactions._count,
+      pendingReviews,
+      flaggedContent,
+      recentAuditActivity: recentAuditLogs,
+      teacherApplications,
+      certificatesIssued,
     };
   }
 
@@ -169,6 +209,33 @@ export class AdminService {
 
     const recentRevenue = recentTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
+    // Generate chart data for the last 30 days
+    const chartData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayStart = new Date(date.setHours(0, 0, 0, 0));
+      const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+
+      const [dayRevenue, dayEnrollments] = await Promise.all([
+        this.prisma.transaction.aggregate({
+          where: {
+            createdAt: { gte: dayStart, lte: dayEnd },
+            status: 'COMPLETED',
+          },
+          _sum: { amount: true },
+        }),
+        this.prisma.enrollment.count({
+          where: { createdAt: { gte: dayStart, lte: dayEnd } },
+        }),
+      ]);
+
+      chartData.push({
+        name: `Day ${30 - i}`,
+        revenue: Number(dayRevenue._sum.amount || 0),
+        enrollments: dayEnrollments,
+      });
+    }
+
     return {
       last30Days: {
         newUsers,
@@ -176,25 +243,32 @@ export class AdminService {
         revenue: recentRevenue,
         transactions: recentTransactions.length,
       },
+      chartData,
     };
   }
 
-  async getCourses(query: PaginationDto) {
+  async getCourses(query: AdminCourseFilterDto) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Prisma.CourseWhereInput = { deletedAt: null };
     if (query.search) {
       where.OR = [
         { title: { contains: query.search, mode: 'insensitive' } },
         { description: { contains: query.search, mode: 'insensitive' } },
       ];
     }
+    if (query.status) {
+      where.status = query.status;
+    }
+    if (query.flagged) {
+      where.isFlagged = { equals: true };
+    }
 
-    const orderBy: Record<string, 'asc' | 'desc'> = {};
+    const orderBy: Prisma.CourseOrderByWithRelationInput = {};
     if (query.sortBy) {
-      orderBy[query.sortBy] = query.sortOrder || 'desc';
+      orderBy[query.sortBy as keyof Prisma.CourseOrderByWithRelationInput] = query.sortOrder || 'desc';
     } else {
       orderBy.createdAt = 'desc';
     }
@@ -207,7 +281,9 @@ export class AdminService {
         orderBy,
         include: {
           category: true,
-          instructor: { select: { id: true, firstName: true, lastName: true, email: true } },
+          instructor: {
+            select: { id: true, firstName: true, lastName: true, email: true, username: true },
+          },
           _count: { select: { enrollments: true, reviews: true } },
         },
       }),
@@ -760,15 +836,24 @@ export class AdminService {
       throw new NotFoundException('Course not found');
     }
 
-    const updateData: Prisma.CourseUpdateInput = {};
-    if (moderationDto.title) updateData.title = moderationDto.title;
-    if (moderationDto.description) updateData.description = moderationDto.description;
-    if (moderationDto.price !== undefined) updateData.price = moderationDto.price;
-    if (moderationDto.status) updateData.status = moderationDto.status;
-    if (moderationDto.isFeatured !== undefined) updateData.isFeatured = moderationDto.isFeatured;
+    const filteredDto = this.coursePermissions.filterAdminModerationDto(
+      course,
+      adminId,
+      moderationDto as Record<string, unknown>,
+    ) as CourseModerationDto;
 
-    // Never allow instructorId to be modified by admins - preserves teacher ownership
-    // Admins can only moderate status and featured status, not become course owners
+    const updateData: Prisma.CourseUpdateInput = {};
+    if (filteredDto.title) updateData.title = filteredDto.title;
+    if (filteredDto.description) updateData.description = filteredDto.description;
+    if (filteredDto.price !== undefined) updateData.price = filteredDto.price;
+    if (filteredDto.status) updateData.status = filteredDto.status;
+    if (filteredDto.isFeatured !== undefined) updateData.isFeatured = filteredDto.isFeatured;
+    if (moderationDto.isFlagged !== undefined) {
+      (updateData as any).isFlagged = moderationDto.isFlagged;
+      if (moderationDto.isFlagged && moderationDto.moderationReason) {
+        (updateData as any).flaggedReason = moderationDto.moderationReason;
+      }
+    }
 
     const updatedCourse = await this.prisma.course.update({
       where: { id: courseId },
@@ -782,6 +867,7 @@ export class AdminService {
     await this.createAuditLog(adminId, 'COURSE_MODERATED', 'Course', courseId, {
       status: moderationDto.status,
       isFeatured: moderationDto.isFeatured,
+      isFlagged: moderationDto.isFlagged,
       reason: moderationDto.moderationReason,
     });
 
@@ -875,7 +961,20 @@ export class AdminService {
   }
 
   async deleteCourse(courseId: string, adminId: string) {
-    const course = await this.prisma.course.findUnique({ where: { id: courseId, deletedAt: null } });
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId, deletedAt: null },
+      include: {
+        topics: {
+          include: {
+            subtopics: {
+              include: {
+                lessons: true
+              }
+            }
+          }
+        }
+      },
+    });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
@@ -885,7 +984,7 @@ export class AdminService {
       data: { deletedAt: new Date() },
     });
 
-    await this.createAuditLog(adminId, 'COURSE_DELETED', 'Course', courseId, { title: course.title });
+    await this.createAuditLog(adminId, 'COURSE_DELETED', 'Course', courseId, course as Prisma.InputJsonValue);
 
     return { message: 'Course deleted successfully' };
   }
@@ -1608,7 +1707,7 @@ export class AdminService {
 
     const flag = await this.prisma.featureFlag.create({
       data: {
-        key: createFeatureFlagDto.key,
+        key: createFeatureFlagDto.key.toLowerCase(),
         name: createFeatureFlagDto.name,
         description: createFeatureFlagDto.description,
         isEnabled: createFeatureFlagDto.isEnabled ?? false,
@@ -1750,6 +1849,148 @@ export class AdminService {
     ]);
 
     return new PaginatedResult(settings, total, page, limit);
+  }
+
+  async bulkUpdatePlatformSettings(dto: BulkPlatformSettingsDto, adminId: string) {
+    const mappings: Array<{ key: string; value: unknown; category: string }> = [];
+
+    if (dto.siteName !== undefined) {
+      mappings.push({ key: 'site.name', value: dto.siteName, category: 'site' });
+    }
+    if (dto.siteDescription !== undefined) {
+      mappings.push({ key: 'site.description', value: dto.siteDescription, category: 'site' });
+    }
+    if (dto.contactEmail !== undefined) {
+      mappings.push({ key: 'site.contact_email', value: dto.contactEmail, category: 'site' });
+    }
+    if (dto.maintenanceMode !== undefined) {
+      mappings.push({ key: 'platform.maintenance_mode', value: dto.maintenanceMode, category: 'platform' });
+    }
+    if (dto.maxUploadSize !== undefined) {
+      mappings.push({ key: 'platform.max_upload_size', value: dto.maxUploadSize, category: 'platform' });
+    }
+
+    const results = await Promise.all(
+      mappings.map((item) =>
+        this.prisma.platformSettings.upsert({
+          where: { key: item.key },
+          update: { value: item.value as Prisma.InputJsonValue },
+          create: {
+            key: item.key,
+            value: item.value as Prisma.InputJsonValue,
+            category: item.category,
+          },
+        }),
+      ),
+    );
+
+    await this.createAuditLog(adminId, 'PLATFORM_SETTINGS_BULK_UPDATE', 'PlatformSettings', undefined, dto as Prisma.InputJsonValue);
+
+    return { settings: results, message: 'Settings updated successfully' };
+  }
+
+  async restoreFromAuditLog(auditLogId: string, adminId: string) {
+    const log = await this.prisma.auditLog.findUnique({ where: { id: auditLogId } });
+    if (!log || !log.metadata) {
+      throw new NotFoundException('Audit log not found or has no snapshot');
+    }
+
+    const snapshot = log.metadata as Record<string, unknown>;
+    const entity = log.entity;
+    const entityId = log.entityId;
+
+    if (!entityId) {
+      throw new BadRequestException('Audit log has no entity ID');
+    }
+
+    switch (entity) {
+      case 'Course':
+        await this.prisma.course.update({
+          where: { id: entityId },
+          data: {
+            deletedAt: null,
+            title: snapshot.title as string,
+            description: snapshot.description as string,
+            status: (snapshot.status as Prisma.CourseUpdateInput['status']) ?? 'DRAFT',
+          },
+        });
+        break;
+      case 'User':
+        await this.prisma.user.update({
+          where: { id: entityId },
+          data: { deletedAt: null, isActive: true },
+        });
+        break;
+      case 'CodingChallenge':
+        await this.prisma.codingChallenge.update({
+          where: { id: entityId },
+          data: { deletedAt: null },
+        });
+        break;
+      case 'Review':
+        await this.prisma.review.update({
+          where: { id: entityId },
+          data: { deletedAt: null } as any,
+        });
+        break;
+      case 'Topic':
+        await this.prisma.topic.update({
+          where: { id: entityId },
+          data: { deletedAt: null, title: snapshot.title as string } as any,
+        });
+        break;
+      case 'Subtopic':
+        await this.prisma.subtopic.update({
+          where: { id: entityId },
+          data: { deletedAt: null, title: snapshot.title as string } as any,
+        });
+        break;
+      case 'Lesson':
+        await this.prisma.lesson.update({
+          where: { id: entityId },
+          data: { deletedAt: null, title: snapshot.title as string } as any,
+        });
+        break;
+      case 'Category':
+        await this.prisma.category.update({
+          where: { id: entityId },
+          data: { deletedAt: null, name: snapshot.name as string } as any,
+        });
+        break;
+      default:
+        throw new BadRequestException(`Restore not supported for entity type: ${entity}`);
+    }
+
+    await this.createAuditLog(adminId, `${entity.toUpperCase()}_RESTORED`, entity, entityId, {
+      fromAuditLogId: auditLogId,
+    });
+
+    return { message: `${entity} restored successfully`, entityId };
+  }
+
+  async getDeletionHistory(query: PaginationDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AuditLogWhereInput = {
+      action: { endsWith: '_DELETED' },
+    };
+
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        },
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return new PaginatedResult(logs, total, page, limit);
   }
 
   async getPlatformSettingByKey(key: string) {

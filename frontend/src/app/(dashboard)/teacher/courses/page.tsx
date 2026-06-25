@@ -45,8 +45,10 @@ export default function TeacherCourses() {
   });
 
   const togglePublishMutation = useMutation({
-    mutationFn: ({ courseId, status }: { courseId: string; status: string }) =>
-      api.patch(`/courses/${courseId}`, { status }, { token: accessToken || undefined }),
+    mutationFn: ({ courseId, publish }: { courseId: string; publish: boolean }) =>
+      publish
+        ? api.post(`/courses/${courseId}/publish`, {}, { token: accessToken || undefined })
+        : api.post(`/courses/${courseId}/unpublish`, {}, { token: accessToken || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
     },
@@ -63,13 +65,23 @@ export default function TeacherCourses() {
     }
   };
 
+  const submitForReviewMutation = useMutation({
+    mutationFn: (courseId: string) =>
+      api.post(`/courses/${courseId}/review`, {}, { token: accessToken || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
+    },
+  });
+
   const handleTogglePublish = (course: Course) => {
-    const newStatus = course.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
-    togglePublishMutation.mutate({ courseId: course.id, status: newStatus });
+    togglePublishMutation.mutate({
+      courseId: course.id,
+      publish: course.status !== 'PUBLISHED',
+    });
   };
 
   const handleSubmitForReview = (course: Course) => {
-    togglePublishMutation.mutate({ courseId: course.id, status: 'UNDER_REVIEW' });
+    submitForReviewMutation.mutate(course.id);
   };
 
   const filteredAndSortedCourses = () => {
@@ -200,7 +212,7 @@ export default function TeacherCourses() {
                     <span>${course.price}</span>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Link href={`/teacher/courses/${course.id}`} className="flex-1">
+                    <Link href={`/teacher/courses/${course.id}/edit`} className="flex-1">
                       <Button variant="outline" className="w-full gap-2">
                         <Edit className="h-4 w-4" />
                         Edit
@@ -215,7 +227,7 @@ export default function TeacherCourses() {
                       <DropdownMenuContent align="end">
                         {isCourseAuthor(course) && (
                           <DropdownMenuItem asChild>
-                            <Link href={`/teacher/courses/${course.id}`}>
+                            <Link href={`/teacher/courses/${course.id}/edit`}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit Curriculum
                             </Link>

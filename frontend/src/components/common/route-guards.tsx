@@ -138,17 +138,9 @@ export function GuestOnlyRoute({ children, fallback }: GuestOnlyRouteProps) {
     }
   }, [isAuthenticated, isInitializing, isHydrated, user, router]);
 
-  // Show loading while hydrating or initializing
-  if (!isHydrated || isInitializing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // If authenticated, show fallback (redirect happens in useEffect)
-  if (isAuthenticated) {
+  // Don't show loading screen - render immediately for public auth pages
+  // Redirect will happen in useEffect after hydration if user is authenticated
+  if (isAuthenticated && isHydrated && !isInitializing) {
     return fallback || null;
   }
 

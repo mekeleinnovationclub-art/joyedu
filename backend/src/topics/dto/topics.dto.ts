@@ -1,7 +1,13 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
-export class CreateChapterDto {
+export class CreateTopicDto {
   @ApiProperty()
   @IsString()
   title: string;
@@ -12,12 +18,18 @@ export class CreateChapterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   sortOrder?: number;
 }
 
-export class UpdateChapterDto {
+export class UpdateTopicDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -25,6 +37,12 @@ export class UpdateChapterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   sortOrder?: number;

@@ -10,6 +10,7 @@ import { PrismaService } from '../common/prisma.service';
 import { CreateCheckoutDto } from './dto/payments.dto';
 import { CreateTelebirrOrderDto, TelebirrWebhookDto, RefundTelebirrOrderDto } from './telebirr/dto/telebirr.dto';
 import { TelebirrService } from './telebirr/telebirr.service';
+import { WalletService } from './wallet.service';
 import { PaginationDto, PaginatedResult } from '../common/dto/pagination.dto';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
 
@@ -22,9 +23,13 @@ export class PaymentsService {
     private prisma: PrismaService,
     private config: ConfigService,
     private telebirrService: TelebirrService,
+    private walletService: WalletService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = new Stripe(key || 'sk_test_placeholder', {
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    this.stripe = new Stripe(key, {
       apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
     });
   }
@@ -54,8 +59,54 @@ export class PaymentsService {
       });
     }
 
+    const paymentMethod = dto.paymentMethod || 'STRIPE';
+
+    // Handle wallet payment
+    if (paymentMethod === 'WALLET') {
+      // Check user's wallet balance
+      const walletBalance = await this.walletService.getUserBalance(userId);
+      
+      if (walletBalance < price) {
+        throw new BadRequestException('Insufficient wallet balance');
+      }
+
+      // Deduct from wallet balance
+      const newBalance = await this.walletService.updateUserBalance({
+        userId,
+        amount: price,
+        type: 'DEBIT',
+        reason: `Course purchase: ${course.title}`,
+      });
+
+      // Create enrollment
+      const existingEnrollment = await this.prisma.enrollment.findUnique({
+        where: { userId_courseId: { userId, courseId: dto.courseId } },
+      });
+
+      if (!existingEnrollment) {
+        await this.prisma.enrollment.create({
+          data: { userId, courseId: dto.courseId },
+        });
+      }
+
+      // Create transaction record
+      await this.prisma.transaction.create({
+        data: {
+          userId,
+          courseId: dto.courseId,
+          amount: price,
+          currency: course.currency,
+          status: 'COMPLETED',
+          paymentMethod: PaymentMethod.WALLET,
+          description: `Course purchase: ${course.title}`,
+        },
+      });
+
+      return { enrolled: true, newBalance, paymentMethod: 'WALLET' };
+    }
+
+    // Handle free courses
     if (price <= 0) {
-      // Check if enrollment already exists
       const existingEnrollment = await this.prisma.enrollment.findUnique({
         where: { userId_courseId: { userId, courseId: dto.courseId } },
       });
@@ -79,25 +130,57 @@ export class PaymentsService {
       return { url: null, enrolled: true };
     }
 
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      line_items: [
-        {
-          price_data: {
-            currency: course.currency.toLowerCase(),
-            product_data: { name: course.title },
-            unit_amount: Math.round(price * 100),
+    // Handle Stripe payment (default)
+    if (paymentMethod === 'STRIPE') {
+      const session = await this.stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: course.currency.toLowerCase(),
+              product_data: { name: course.title },
+              unit_amount: Math.round(price * 100),
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        },
-      ],
-      metadata: { userId, courseId: dto.courseId },
-      success_url: `${this.config.get('APP_URL')}/courses/${course.slug}?payment=success`,
-      cancel_url: `${this.config.get('APP_URL')}/courses/${course.slug}?payment=cancelled`,
-    });
+        ],
+        metadata: { userId, courseId: dto.courseId },
+        success_url: `${this.config.get('APP_URL')}/courses/${course.slug}?payment=success`,
+        cancel_url: `${this.config.get('APP_URL')}/courses/${course.slug}?payment=cancelled`,
+      });
 
-    return { url: session.url, sessionId: session.id };
+      return { url: session.url, sessionId: session.id, paymentMethod: 'STRIPE' };
+    }
+
+    // Handle Telebirr payment
+    if (paymentMethod === 'TELEBIRR') {
+      const { rawRequest, merchantOrderId } = await this.telebirrService.createOrder(
+        userId,
+        dto.courseId,
+        price,
+        `Course purchase: ${course.title}`,
+      );
+
+      // Create transaction record
+      await this.prisma.transaction.create({
+        data: {
+          userId,
+          courseId: dto.courseId,
+          amount: price,
+          currency: 'ETB',
+          status: 'PENDING',
+          paymentMethod: PaymentMethod.TELEBIRR,
+          telebirrOrderId: merchantOrderId,
+          rawRequest,
+          description: `Course purchase: ${course.title}`,
+        },
+      });
+
+      return { rawRequest, merchantOrderId, paymentMethod: 'TELEBIRR' };
+    }
+
+    throw new BadRequestException('Invalid payment method');
   }
 
   async handleWebhook(payload: Buffer, signature: string) {
@@ -290,23 +373,36 @@ export class PaymentsService {
         },
       });
 
-      // If payment successful, create enrollment
-      if (internalStatus === PaymentStatus.COMPLETED && transaction.courseId) {
-        // Check if enrollment already exists
-        const existingEnrollment = await tx.enrollment.findUnique({
-          where: { userId_courseId: { userId: transaction.userId, courseId: transaction.courseId } },
-        });
-
-        if (!existingEnrollment) {
-          await tx.enrollment.create({
-            data: {
-              userId: transaction.userId,
-              courseId: transaction.courseId,
-            },
+      // If payment successful
+      if (internalStatus === PaymentStatus.COMPLETED) {
+        // Check if this is a wallet topup (courseId would be null or description indicates wallet topup)
+        if (!transaction.courseId || transaction.description?.includes('Wallet Topup')) {
+          // Credit user's wallet balance
+          await this.walletService.updateUserBalance({
+            userId: transaction.userId,
+            amount: Number(transaction.amount),
+            type: 'CREDIT',
+            reason: 'Wallet topup via Telebirr',
           });
-          this.logger.log(`Enrollment created for user ${transaction.userId} in course ${transaction.courseId}`);
-        } else {
-          this.logger.log(`Enrollment already exists for user ${transaction.userId} in course ${transaction.courseId}`);
+          this.logger.log(`Wallet balance credited for user ${transaction.userId}: ${transaction.amount} ETB`);
+        } 
+        // Otherwise, create course enrollment
+        else if (transaction.courseId) {
+          const existingEnrollment = await tx.enrollment.findUnique({
+            where: { userId_courseId: { userId: transaction.userId, courseId: transaction.courseId } },
+          });
+
+          if (!existingEnrollment) {
+            await tx.enrollment.create({
+              data: {
+                userId: transaction.userId,
+                courseId: transaction.courseId,
+              },
+            });
+            this.logger.log(`Enrollment created for user ${transaction.userId} in course ${transaction.courseId}`);
+          } else {
+            this.logger.log(`Enrollment already exists for user ${transaction.userId} in course ${transaction.courseId}`);
+          }
         }
       }
     });

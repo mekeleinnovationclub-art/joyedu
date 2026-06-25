@@ -65,7 +65,17 @@ export function useAuth() {
     }
   }, [accessToken, refreshToken, isHydrated, setAuth, setTeacherApplication, setInitializing, setHydrated, clearAuth]);
 
-  // Set up 401 interceptor
+  const refreshSession = async () => {
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const res = await api.post<AuthResponse>('/auth/refresh', { refreshToken });
+    setAuth(res.user, res.accessToken, res.refreshToken);
+    return res;
+  };
+
+  // Set up 401 interceptor and token refresh
   useEffect(() => {
     const handle401 = async (error: Error, statusCode?: number) => {
       if (statusCode === 401) {
@@ -73,24 +83,29 @@ export function useAuth() {
         clearAuth();
         localStorage.removeItem('joyedu-auth');
         sessionStorage.clear();
-        
+
         // Clear React Query caches
         queryClient.clear();
-        
+
         // Redirect to login
         router.push('/login');
-        
+
         return true;
       }
       return false;
     };
 
     api.setAuthInterceptor(handle401);
+    api.setTokenRefreshFn(async () => {
+      const res = await refreshSession();
+      return { accessToken: res.accessToken, refreshToken: res.refreshToken };
+    });
 
     return () => {
       api.setAuthInterceptor(() => false);
+      api.setTokenRefreshFn(() => Promise.reject(new Error('No refresh fn')));
     };
-  }, [clearAuth, queryClient, router]);
+  }, [clearAuth, queryClient, router, refreshSession]);
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>('/auth/login', { email, password });
@@ -130,16 +145,6 @@ export function useAuth() {
 
   const switchRole = async (role: 'STUDENT' | 'TEACHER' | 'ADMIN') => {
     const res = await api.post<AuthResponse>('/auth/switch-role', { role }, { token: accessToken || undefined });
-    setAuth(res.user, res.accessToken, res.refreshToken);
-    return res;
-  };
-
-  const refreshSession = async () => {
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const res = await api.post<AuthResponse>('/auth/refresh', { refreshToken });
     setAuth(res.user, res.accessToken, res.refreshToken);
     return res;
   };

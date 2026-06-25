@@ -37,7 +37,24 @@ export default function CourseDetailPage() {
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', slug],
-    queryFn: () => api.get<Course>(`/courses/slug/${slug}`),
+    queryFn: () => api.get<Course>(`/courses/slug/${slug}`, { token: accessToken || undefined }),
+  });
+
+  const { data: enrollmentStatus } = useQuery({
+    queryKey: ['enrollment-check', course?.id],
+    queryFn: () => api.get<{ enrolled: boolean }>(`/enrollments/check/${course!.id}`, { token: accessToken || undefined }),
+    enabled: !!accessToken && !!course?.id,
+  });
+
+  const enrollMutation = useMutation({
+    mutationFn: (courseId: string) =>
+      api.post('/enrollments', { courseId }, { token: accessToken || undefined }),
+    onSuccess: () => {
+      router.push('/student/courses');
+    },
+    onError: (error: Error) => {
+      alert(error.message);
+    },
   });
 
   const createTelebirrOrderMutation = useMutation({
@@ -79,14 +96,24 @@ export default function CourseDetailPage() {
   const handlePurchase = () => {
     if (!accessToken) {
       alert('Please log in to purchase this course.');
-      router.push('/auth/login');
+      router.push('/login');
       return;
     }
 
     if (!course) return;
 
-    // If in Telebirr SuperApp, use Telebirr payment
-    if (isTelebirr) {
+    if (enrollmentStatus?.enrolled) {
+      router.push('/student/courses');
+      return;
+    }
+
+    const price = Number(course.discountPrice ?? course.price);
+    if (price <= 0) {
+      enrollMutation.mutate(course.id);
+      return;
+    }
+
+    if (isTelebirrSuperApp()) {
       const amount = course.discountPrice || course.price;
       createTelebirrOrderMutation.mutate({
         courseId: course.id,
@@ -141,7 +168,11 @@ export default function CourseDetailPage() {
   };
 
   const isTelebirr = isTelebirrSuperApp();
-  const isPurchasing = createTelebirrOrderMutation.isPending || createStripeCheckoutMutation.isPending;
+  const isPurchasing =
+    createTelebirrOrderMutation.isPending ||
+    createStripeCheckoutMutation.isPending ||
+    enrollMutation.isPending;
+  const isEnrolled = enrollmentStatus?.enrolled;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -228,26 +259,33 @@ export default function CourseDetailPage() {
               )}
 
               {/* Curriculum */}
-              {course.chapters && course.chapters.length > 0 && (
+              {course.topics && course.topics.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Course Content</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {course.chapters.map((chapter) => (
-                      <div key={chapter.id}>
-                        <h4 className="font-medium mb-2">{chapter.title}</h4>
-                        <div className="space-y-1 ml-4">
-                          {chapter.lessons.map((lesson) => (
-                            <div key={lesson.id} className="flex items-center justify-between py-2 text-sm">
-                              <div className="flex items-center gap-2">
-                                {lessonTypeIcon(lesson.type)}
-                                <span>{lesson.title}</span>
-                                {lesson.isFree && <Badge variant="secondary" className="text-xs">Free</Badge>}
+                    {course.topics.map((topic) => (
+                      <div key={topic.id}>
+                        <h4 className="font-medium mb-2">{topic.title}</h4>
+                        <div className="space-y-2 ml-4">
+                          {topic.subtopics.map((subtopic) => (
+                            <div key={subtopic.id}>
+                              <h5 className="text-sm font-medium mb-1">{subtopic.title}</h5>
+                              <div className="space-y-1 ml-4">
+                                {subtopic.lessons.map((lesson) => (
+                                  <div key={lesson.id} className="flex items-center justify-between py-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      {lessonTypeIcon(lesson.type)}
+                                      <span>{lesson.title}</span>
+                                      {lesson.isFree && <Badge variant="secondary" className="text-xs">Free</Badge>}
+                                    </div>
+                                    {lesson.videoDuration && (
+                                      <span className="text-muted-foreground">{lesson.videoDuration}m</span>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                              {lesson.videoDuration && (
-                                <span className="text-muted-foreground">{lesson.videoDuration}m</span>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -291,6 +329,8 @@ export default function CourseDetailPage() {
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Processing...
                       </>
+                    ) : isEnrolled ? (
+                      'Continue Learning'
                     ) : course.price > 0 ? (
                       isTelebirr ? 'Buy with Telebirr' : 'Buy with Stripe'
                     ) : (
@@ -314,7 +354,7 @@ export default function CourseDetailPage() {
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <BookOpen className="h-4 w-4" />
-                      <span>{course.chapters?.reduce((sum, ch) => sum + ch.lessons.length, 0) || 0} lessons</span>
+                      <span>{course.topics?.reduce((sum, topic) => sum + topic.subtopics.reduce((subSum, subtopic) => subSum + subtopic.lessons.length, 0), 0) || 0} lessons</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Globe className="h-4 w-4" />

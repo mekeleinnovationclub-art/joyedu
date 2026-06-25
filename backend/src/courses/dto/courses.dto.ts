@@ -8,6 +8,11 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CourseStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+
+const DIFFICULTY_LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] as const;
+type DifficultyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
 
 export class CreateCourseDto {
   @ApiProperty()
@@ -26,7 +31,17 @@ export class CreateCourseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  shortDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   thumbnail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  coverImage?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -35,14 +50,20 @@ export class CreateCourseDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  promotionalVideo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
 
-  @ApiPropertyOptional({ enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] })
+  @ApiPropertyOptional({ enum: DIFFICULTY_LEVELS })
   @IsOptional()
-  @IsEnum({ BEGINNER: 'BEGINNER', INTERMEDIATE: 'INTERMEDIATE', ADVANCED: 'ADVANCED', EXPERT: 'EXPERT' })
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  @IsEnum(DIFFICULTY_LEVELS)
+  difficulty?: DifficultyLevel;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -81,6 +102,31 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   seoDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  certificateEligible?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isFlagged?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  flaggedReason?: string;
 }
 
 export class UpdateCourseDto {
@@ -102,7 +148,17 @@ export class UpdateCourseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  shortDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   thumbnail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  coverImage?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -111,25 +167,44 @@ export class UpdateCourseDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  promotionalVideo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   discountPrice?: number;
 
-  @ApiPropertyOptional({ enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] })
+  @ApiPropertyOptional({ enum: DIFFICULTY_LEVELS })
   @IsOptional()
-  @IsEnum({ BEGINNER: 'BEGINNER', INTERMEDIATE: 'INTERMEDIATE', ADVANCED: 'ADVANCED', EXPERT: 'EXPERT' })
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  @IsEnum(DIFFICULTY_LEVELS)
+  difficulty?: DifficultyLevel;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  duration?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -159,10 +234,35 @@ export class UpdateCourseDto {
   @IsString()
   seoDescription?: string;
 
+  @ApiPropertyOptional({ enum: CourseStatus })
+  @IsOptional()
+  @IsEnum(CourseStatus)
+  status?: CourseStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  certificateEligible?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isFlagged?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  flaggedReason?: string;
 }
 
 export class CourseFilterDto {
@@ -176,30 +276,34 @@ export class CourseFilterDto {
   @IsString()
   categoryId?: string;
 
-  @ApiPropertyOptional({ enum: ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] })
+  @ApiPropertyOptional({ enum: DIFFICULTY_LEVELS })
   @IsOptional()
   @IsString()
   difficulty?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   minPrice?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   maxPrice?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   limit?: number = 20;

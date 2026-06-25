@@ -40,7 +40,12 @@ export interface Course {
   price: number;
   discountPrice: number | null;
   currency: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  status: 'DRAFT' | 'REVIEW' | 'PUBLISHED' | 'UNPUBLISHED' | 'ARCHIVED';
+  shortDescription?: string | null;
+  coverImage?: string | null;
+  promotionalVideo?: string | null;
+  certificateEligible?: boolean;
+  isFlagged?: boolean;
   difficulty: DifficultyLevel;
   language: string;
   duration: number;
@@ -58,7 +63,7 @@ export interface Course {
     bio?: string;
   };
   category: Category | null;
-  chapters?: Chapter[];
+  topics?: Topic[];
   _count?: {
     enrollments: number;
     reviews: number;
@@ -79,10 +84,21 @@ export interface Category {
   _count?: { courses: number };
 }
 
-export interface Chapter {
+export interface Topic {
   id: string;
   title: string;
+  description: string | null;
   sortOrder: number;
+  subtopics: Subtopic[];
+}
+
+export interface Subtopic {
+  id: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  summary: string | null;
+  keyTakeaways: string[];
   lessons: Lesson[];
 }
 

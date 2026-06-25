@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCheckoutDto {
@@ -10,6 +10,11 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @ApiPropertyOptional({ enum: ['STRIPE', 'TELEBIRR', 'WALLET'] })
+  @IsOptional()
+  @IsEnum(['STRIPE', 'TELEBIRR', 'WALLET'])
+  paymentMethod?: 'STRIPE' | 'TELEBIRR' | 'WALLET';
 }
 
 export class CreateSubscriptionDto {

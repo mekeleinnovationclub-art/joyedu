@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +15,33 @@ import { Settings, Save } from 'lucide-react';
 export default function AdminSettings() {
   const { accessToken } = useAuth();
   const [formData, setFormData] = useState({
-    siteName: 'JoyEdu',
-    siteDescription: 'Learn and teach online',
-    contactEmail: 'support@joyedu.com',
+    siteName: '',
+    siteDescription: '',
+    contactEmail: '',
     maintenanceMode: false,
     maxUploadSize: '10',
   });
+
+  const { data: settingsResponse } = useQuery<{ data: any[] }>({
+    queryKey: ['admin-settings'],
+    queryFn: () => api.get('/admin/settings', { token: accessToken || undefined }),
+    enabled: !!accessToken,
+  });
+
+  useEffect(() => {
+    const settings = settingsResponse?.data || [];
+    const getValue = (key: string) => {
+      const setting = settings.find((s: any) => s.key === key);
+      return setting?.value;
+    };
+    setFormData({
+      siteName: String(getValue('site.name') || 'JoyEdu'),
+      siteDescription: String(getValue('site.description') || ''),
+      contactEmail: String(getValue('site.contact_email') || ''),
+      maintenanceMode: Boolean(getValue('platform.maintenance_mode')),
+      maxUploadSize: String(getValue('platform.max_upload_size') || '10'),
+    });
+  }, [settingsResponse]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: typeof formData) =>
@@ -120,9 +141,6 @@ export default function AdminSettings() {
           <Button type="submit" disabled={updateSettingsMutation.isPending} className="gap-2">
             <Save className="h-4 w-4" />
             {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
-          </Button>
-          <Button type="button" variant="outline">
-            Cancel
           </Button>
         </div>
       </form>

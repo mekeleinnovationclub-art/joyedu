@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   UseGuards,
   HttpCode,
@@ -22,6 +23,7 @@ import {
 } from './dto/auth.dto';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { UpdateAuthProfileDto } from './dto/profile.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -81,6 +83,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user with session validation' })
   async getCurrentUser(@CurrentUser() user: JwtPayload) {
     return this.authService.getCurrentUser(user.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('profile')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current user profile' })
+  async updateProfile(@CurrentUser() user: JwtPayload, @Body() dto: UpdateAuthProfileDto) {
+    return this.authService.updateProfile(user.sub, dto);
   }
 
   @UseGuards(AuthGuard('jwt'))

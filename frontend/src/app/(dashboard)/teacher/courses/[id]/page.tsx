@@ -16,6 +16,7 @@ import { ArrowLeft, BookOpen, Users, DollarSign, X, PlusCircle, Save } from 'luc
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { Course } from '@/types';
+import { CourseBuilder } from '@/components/course/course-builder';
 
 export default function CourseDetail() {
   const params = useParams();
@@ -26,7 +27,7 @@ export default function CourseDetail() {
   const { data: course, isLoading } = useQuery<Course>({
     queryKey: ['course', courseId],
     queryFn: () => api.get(`/courses/${courseId}`, { token: accessToken || undefined }),
-    enabled: !!courseId,
+    enabled: !!courseId && !!accessToken,
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -47,7 +48,10 @@ export default function CourseDetail() {
 
   const updateMutation = useMutation({
     mutationFn: (data: typeof formData) =>
-      api.put(`/courses/${courseId}`, data, { token: accessToken || undefined }),
+      api.put(`/courses/${courseId}`, {
+        ...data,
+        price: parseFloat(data.price) || 0,
+      }, { token: accessToken || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       queryClient.invalidateQueries({ queryKey: ['instructor-courses'] });
@@ -472,6 +476,8 @@ export default function CourseDetail() {
           )}
         </CardContent>
       </Card>
+
+      <CourseBuilder courseId={courseId} accessToken={accessToken || undefined} />
     </div>
   );
 }

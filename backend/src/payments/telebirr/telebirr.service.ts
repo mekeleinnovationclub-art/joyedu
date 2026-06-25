@@ -44,20 +44,40 @@ export class TelebirrService {
   private ensureInitialized() {
     if (this.initialized) return;
 
+    const privateKeyString = this.configService.get<string>('TELEBIRR_PRIVATE_KEY');
+    const publicKeyString = this.configService.get<string>('TELEBIRR_PUBLIC_KEY');
+    const privateKeyPath = this.configService.get<string>('TELEBIRR_PRIVATE_KEY_PATH');
+    const publicKeyPath = this.configService.get<string>('TELEBIRR_PUBLIC_KEY_PATH');
+
     this.config = {
       baseUrl: this.configService.get<string>('TELEBIRR_BASE_URL')!,
       xAppKey: this.configService.get<string>('TELEBIRR_X_APP_KEY')!,
       appSecret: this.configService.get<string>('TELEBIRR_APP_SECRET')!,
       merchantAppId: this.configService.get<string>('TELEBIRR_MERCHANT_APP_ID')!,
       merchantCode: this.configService.get<string>('TELEBIRR_MERCHANT_CODE')!,
-      privateKeyPath: this.configService.get<string>('TELEBIRR_PRIVATE_KEY_PATH')!,
-      publicKeyPath: this.configService.get<string>('TELEBIRR_PUBLIC_KEY_PATH')!,
+      privateKeyPath: privateKeyPath || '',
+      publicKeyPath: publicKeyPath || '',
       notifyUrl: this.configService.get<string>('TELEBIRR_NOTIFY_URL')!,
       redirectUrl: this.configService.get<string>('TELEBIRR_REDIRECT_URL')!,
     };
 
-    this.privateKey = loadPrivateKey(this.config.privateKeyPath);
-    this.publicKey = loadPublicKey(this.config.publicKeyPath);
+    // Load keys from environment variables if available, otherwise from file paths
+    if (privateKeyString) {
+      this.privateKey = privateKeyString;
+    } else if (privateKeyPath) {
+      this.privateKey = loadPrivateKey(privateKeyPath);
+    } else {
+      throw new Error('TELEBIRR_PRIVATE_KEY or TELEBIRR_PRIVATE_KEY_PATH must be set');
+    }
+
+    if (publicKeyString) {
+      this.publicKey = publicKeyString;
+    } else if (publicKeyPath) {
+      this.publicKey = loadPublicKey(publicKeyPath);
+    } else {
+      throw new Error('TELEBIRR_PUBLIC_KEY or TELEBIRR_PUBLIC_KEY_PATH must be set');
+    }
+
     this.initialized = true;
   }
 
